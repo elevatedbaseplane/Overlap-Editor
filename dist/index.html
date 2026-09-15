@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>B.A.C: Overlap Editor..... Beta</title>
+  <meta name="description" content="A non-destructive grid composition workspace for form studies.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='white'/%3E%3Cpath d='M6 8H26V24H6Z M10 5V27 M22 5V27' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">B.A.C: OVERLAP EDITOR..... BETA</div>
+    <span class="build">BUILD 01 <span>/ COMPOSITION STUDIES</span></span>
+    <div class="history-actions">
+      <button id="toggle-projects" class="quiet">BOARDS −</button>
+      <button id="import-button" class="quiet">IMPORT</button>
+      <button id="toggle-controls" class="quiet">CONTROLS −</button>
+    </div>
+  </header>
+  <input id="file-input" type="file" accept=".svg,.json,image/svg+xml,application/json" multiple hidden>
+  <main id="app-shell">
+    <aside id="project-rail" class="project-rail">
+      <div class="project-heading"><span>PROJECTS</span></div>
+      <div class="project-actions"><button id="new-project" class="rail-action">NEW PROJECT</button><button id="rename-project" class="rail-action">RENAME</button><button id="delete-project" class="rail-action">DELETE</button></div>
+      <div id="board-tree" class="board-tree"></div>
+      <div id="board-content-reservoir" hidden></div>
+      <div id="project-list" hidden></div>
+      <div id="active-board-content">
+      <div class="iteration-heading"><span>BOARDS</span><span class="saved-board-heading-actions"><button id="compare-boards" class="rail-action">COMPARE <span id="compare-board-count">00</span></button></span></div><div id="iteration-list" class="iteration-list"></div>
+      <div id="saved-board-actions" class="project-actions"><button id="new-board" class="rail-action">NEW BOARD</button><button id="rename-board" class="rail-action">RENAME</button><button id="duplicate-board" class="rail-action">DUPLICATE</button><button id="delete-board" class="rail-action">DELETE</button></div>
+      <div class="iteration-heading"><span id="active-board-library-title">EDITOR EXPORTS</span></div>
+      <details id="editor-exports" class="parameter-panel" open><summary>EDITOR EXPORTS</summary><details><summary>EDITED BOARDS <span id="edited-board-count">0</span></summary><div id="edited-board-list" class="iteration-list"></div></details><details><summary>EDITED FORMS <span id="edited-form-count">0</span></summary><div id="edited-form-list" class="iteration-list"></div></details><details><summary>INTERSTITIAL SPACES <span id="interstitial-count">0</span></summary><div id="interstitial-list" class="iteration-list"></div></details><details><summary>RESIDUAL FIELD CREATIONS <span id="residual-field-count">0</span></summary><div id="residual-field-list" class="iteration-list"></div></details><details><summary>OUTPUT CHUNKS <span id="output-chunk-count">0</span></summary><div id="output-chunk-list" class="iteration-list"></div></details></details><div class="project-actions export-library-actions"><button id="export-selected-exports" class="rail-action">EXPORT SELECTED 00</button><button id="export-active-board" class="rail-action">EXPORT BOARD</button></div><div class="project-actions"><button id="rename-derived" class="rail-action">RENAME</button><button id="delete-derived" class="rail-action">DELETE</button></div>
+      <p>SAVED LOCALLY IN THIS BROWSER.</p>
+      </div>
+    </aside>
+    <section class="workspace">
+      <div class="workspace-bar">
+        <nav class="tool-tabs" aria-label="Tools"><button class="active"><span>01</span> OVERLAP EDITOR</button></nav>
+        <div class="global-controls"><button id="open-editor" class="editor-launch">OPEN EDITOR ↗</button><label><input id="isolation" type="checkbox"> ISOLATION MODE</label><label><input id="show-overlap" type="checkbox"> OVERLAP VIEWER</label></div>
+      </div>
+      <div id="drawing" class="drawing">
+        <div class="drawing-label"><span>GRID COMPOSITION / <b id="study-name">STARTER SET</b></span><span id="layer-summary">09 LAYERS</span></div>
+        <svg id="canvas" viewBox="0 0 820 720" role="img" aria-label="Overlap composition canvas">
+          <g id="grid-layer"></g>
+          <g id="frame-layer" fill="none" stroke="#888" stroke-width="1"><path d="M100 135V110H125 M695 110H720V135 M720 585V610H695 M125 610H100V585"/></g>
+          <g id="shape-layer"></g>
+          <g id="overlap-layer"></g>
+          <g id="selection-layer"></g>
+        </svg>
+        <div class="canvas-bottom"><div class="canvas-left"><span><i class="legend-line"></i> SELECT A SHAPE TO EDIT</span><div class="mode-tabs" aria-label="Display mode"><button class="mode-tab active" data-mode="light">LIGHT</button><button class="mode-tab" data-mode="dark">DARK</button><button class="mode-tab" data-mode="neo">NEO</button></div></div><div class="global-controls canvas-display-controls"><label><input id="show-grid" type="checkbox" checked> CANVAS GRID + FRAME</label><label><input id="show-fill" type="checkbox"> SHOW FILL</label><label><input id="show-border" type="checkbox"> SHOW BORDER</label></div></div>
+      </div>
+      <div class="statusbar"><span id="status">3 × 3 GRID · NON-DESTRUCTIVE</span><span id="selection-summary">NO SELECTION</span></div>
+    </section>
+    <aside id="control-rail" class="control-rail">
+      <details class="parameter-panel layer-section">
+        <summary>LAYERS</summary>
+        <div class="selection-toolbar"><button id="select-all-layers">SELECT ALL</button><button id="deselect-layers">DESELECT</button></div>
+        <div class="layer-order"><button id="rename-layer">RENAME</button><button id="toggle-layer-visibility">HIDE / SHOW</button></div>
+        <div class="layer-order"><button id="send-back">SEND BACK</button><button id="bring-front">BRING FRONT</button></div>
+        <div id="layer-list" class="layer-list"></div>
+        <p id="layer-provenance" class="hint">SELECT A LAYER TO VIEW SOURCE.</p>
+      </details>
+      <section class="control-section">
+        <div class="section-heading"><h2>Grid</h2><output id="grid-output">3 × 3</output></div>
+        <div class="range-label"><label for="grid-size">Grid resolution</label><input id="grid-size-value" type="number" min="1" max="10" step="1" value="3"></div>
+        <input id="grid-size" type="range" min="1" max="10" step="1" value="3"><div class="range-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <p class="hint">Layers populate sequentially at the center of each grid cell.</p>
+      </section>
+      <details class="parameter-panel">
+        <summary>LOCATION</summary>
+        <div class="details-body">
+          <div class="section-heading"><h2>Direct placement</h2><output id="position-output">SELECT A LAYER</output></div>
+          <button id="random-location" class="primary">RANDOMIZE SHAPE LOCATIONS <span>↗</span></button>
+          <p class="hint">Select a shape, then click and drag it directly on the board. Shift-click to select more than one shape; selected shapes move together.</p>
+        </div>
+      </details>
+      <details class="parameter-panel">
+        <summary>SCALE</summary>
+        <div class="details-body">
+          <div class="section-heading"><h2>All layers</h2><output id="scale-output">100%</output></div>
+          <div class="range-label"><label for="global-scale">Scale from composition center</label><input id="global-scale-value" type="number" min="25" max="250" step="1" value="100"></div>
+          <input id="global-scale" type="range" min="1" max="10" step="1" value="4"><div class="range-ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <p class="hint">Layers may extend beyond the grid boundary.</p>
+        </div>
+      </details>
+      <details class="parameter-panel">
+        <summary>ROTATE</summary>
+        <div class="details-body">
+          <div class="rotate-row"><span>Rotation increment</span><div><button class="step active" data-step="45">45°</button><button class="step" data-step="90">90°</button></div></div>
+          <div class="rotate-actions"><button id="rotate-left">↶</button><button id="rotate-right">↷</button><button id="random-rotate">RANDOMIZE ALL</button></div>
+          <p class="hint">Rotation controls apply to selected layers. Randomize all rotates every shape independently.</p>
+        </div>
+      </details>
+      <section class="control-section export-section">
+        <div class="section-heading"><h2>Export composition</h2><span>SVG</span></div>
+        <div class="export-layers">
+          <span>INCLUDE</span>
+          <div class="selection-toolbar"><button id="select-all-export">SELECT ALL</button><button id="deselect-export">DESELECT</button></div>
+          <label class="export-toggle"><input id="export-layers-all" type="checkbox" checked> FORM LAYERS</label>
+          <label class="export-toggle"><input id="export-grid" type="checkbox"> GRID</label>
+        </div>
+        <button id="export-svg" class="export-button">EXPORT SVG <span>↓</span></button>
+      </section>
+      <footer>BUILD 01<br>Grid composition · non-destructive transform layers.</footer>
+    </aside>
+  </main>
+  <section id="editor-overlay" class="editor-overlay" aria-hidden="true" aria-label="Non-destructive editor">
+    <div class="editor-shell">
+      <header class="editor-header">
+        <div><span class="editor-kicker">DERIVED SESSION / NON-DESTRUCTIVE</span><strong>EDITOR</strong></div>
+        <div class="editor-actions"><button id="editor-close">CLOSE</button></div>
+      </header>
+      <div class="editor-toolbar">
+        <div class="editor-field-tabs" aria-label="Field view"><button class="editor-field active" data-editor-field="forms">ALL FORMS</button><button class="editor-field" data-editor-field="overlap">OVERLAP FIELD</button><button class="editor-field" data-editor-field="residual">RESIDUAL FIELD</button></div>
+        <div class="editor-readout"><span id="editor-layer-count">00 FORMS</span><span id="editor-overlap-count">LIVE PAIRWISE FIELDS</span></div>
+        <button id="edit-field" class="editor-save" disabled>CUSTOMIZE</button>
+      </div>
+      <div class="editor-workspace">
+        <aside id="editor-export-rail" class="editor-export-rail"><div class="editor-panel-heading">BOARD LIBRARIES</div><div id="editor-export-tree"></div></aside>
+        <div class="editor-canvas-wrap">
+          <div class="editor-canvas-label"><span id="editor-board-name">TEMPORARY DERIVED SESSION</span><span id="editor-context-note">NO GEOMETRY HAS BEEN ALTERED</span></div><button id="editor-preview-close" class="editor-preview-close" hidden aria-label="Return to current board">[X]</button><div class="global-controls editor-display-controls" aria-label="Editor display"><label><input id="editor-show-grid" type="checkbox" checked> SHOW GRID</label><label><input id="editor-show-fill" type="checkbox" checked> SHOW FILL</label><label><input id="editor-show-double" type="checkbox"> SHOW BORDER</label></div>
+          <svg id="editor-canvas" viewBox="0 0 820 720" role="img" aria-label="Derived overlap representation"><g id="editor-grid"></g><g id="editor-forms"></g><g id="editor-overlaps"></g><g id="editor-zone-selection"></g></svg>
+        </div>
+        <aside class="editor-rail">
+          <div class="editor-panel-heading">OVERLAP ZONES <span id="editor-selection-count">00</span></div>
+          <p class="editor-hint">Click a field to select it. Shift-click adds or removes fields from the current selection.</p>
+          <button id="clear-zone-selection" class="editor-rail-button">CLEAR SELECTION</button>
+          <div class="editor-target"><label for="editor-form-target">REMOVE FROM</label><select id="editor-form-target"></select></div>
+          <div class="editor-rail-actions"><button id="extract-interstitial" class="editor-action" disabled>EXTRACT INTERSTITIAL</button><button id="remove-from-form" class="editor-action" disabled>REMOVE FROM FORM</button></div>
+          <p class="editor-note">Both actions create new derived objects. Source forms and the Organizer remain unchanged.</p><div id="editor-preview-actions" class="editor-preview-actions" hidden><button id="editor-return-board" class="editor-rail-button">RETURN TO CURRENT BOARD</button><button id="editor-add-session" class="editor-action">ADD TO SESSION</button><button id="editor-open-board" class="editor-rail-button">OPEN AS BOARD</button></div>
+        </aside>
+      </div>
+      <footer class="editor-footer"><span id="editor-status">ORGANIZER REMAINS UNTOUCHED</span><span>EDITING TOOLS ARRIVE NEXT</span></footer>
+    </div>
+  </section>
+  <section id="evaluation-overlay" class="evaluation-overlay" aria-hidden="true">
+    <div class="evaluation-shell"><header class="evaluation-header"><div><span>MANUAL COMPARISON / SAVED EDITOR EXPORTS</span><strong>COMPARE + EVALUATE</strong></div><button id="close-evaluation">CLOSE</button></header><div class="evaluation-body"><aside class="evaluation-library"><div class="evaluation-heading">EDITOR EXPORTS</div><div id="evaluation-source-list"></div><button id="clear-compare">CLEAR COMPARE</button></aside><main class="evaluation-main"><div class="evaluation-toolbar"><span id="evaluation-readout">SELECT 2–4 EXPORTS TO COMPARE</span><button id="save-output-chunk">SAVE OUTPUT CHUNK</button><button id="open-imagine-space">IMAGINE SPACE</button></div><div id="comparison-grid" class="comparison-grid"></div><div id="chunk-controls" class="chunk-controls"><label>VIEWFINDER <input id="chunk-size" type="range" min="80" max="420" value="220"></label><span>SQUARE CROP / ACTIVE COMPARISON</span></div></main><aside class="evaluation-criteria"><div class="evaluation-heading">MANUAL CRITERIA</div><div id="criteria-list"></div><label class="evaluation-notes">NOTES<textarea id="evaluation-notes" placeholder="Observations, comparison notes, provenance..."></textarea></label><button id="save-evaluation">SAVE EVALUATION</button><div id="saved-evaluation-list"></div></aside></div><footer>EXPORTS REMAIN UNCHANGED / EVALUATIONS ARE SAVED LOCALLY</footer></div>
+  </section>
+  <section id="review-overlay" class="editor-overlay review-overlay" aria-hidden="true" aria-label="Review selected exports"><div class="editor-shell review-shell"><header class="editor-header"><div><span class="editor-kicker">TEMPORARY CROSS-PROJECT SET</span><div class="editor-screen-title"><button id="review-back" aria-label="Return to Editor">←</button><strong>REVIEW SELECTION <span id="review-count">00</span></strong></div></div><div class="editor-actions"><button id="open-comparison">COMPARE EXTRACTIONS</button><button id="review-clear">CLEAR</button><button id="review-close">CLOSE</button></div></header><div id="review-list" class="review-list"></div><footer class="editor-footer"><span>SELECTIONS REMAIN IN THEIR SOURCE BOARD</span><span>SELECT 2–4 TO COMPARE</span></footer></div></section>
+  <section id="comparison-overlay" class="editor-overlay comparison-overlay" aria-hidden="true" aria-label="Compare selected extractions"><div class="editor-shell comparison-shell"><header class="editor-header"><div><span class="editor-kicker">TEMPORARY CROSS-PROJECT SET</span><div class="editor-screen-title"><button id="comparison-back" aria-label="Return to Review Selection">←</button><strong>COMPARE EXTRACTIONS <span id="comparison-count">00</span></strong></div></div><div class="editor-actions"><button id="comparison-show-fill">[X] SHOW FILL</button><button id="comparison-show-border">[ ] SHOW BORDER</button><button id="open-comparison-evaluation" hidden>EVALUATE</button></div></header><div class="comparison-body"><div id="comparison-list" class="comparison-list"></div><section id="comparison-criteria" class="comparison-criteria"></section></div><footer class="editor-footer"><span>ALL OBJECTS REMAIN UNCHANGED</span><span>MANUAL CRITERIA / INTERPRET SPACE</span></footer></div></section>
+  <section id="export-overlay" class="editor-overlay export-overlay" aria-hidden="true" aria-label="Configure export package"><div class="editor-shell export-shell"><header class="editor-header"><div><span class="editor-kicker">NON-DESTRUCTIVE FILE PACKAGE</span><strong id="export-package-title">EXPORT PACKAGE</strong></div><div class="editor-actions"><button id="export-package-close">CLOSE</button></div></header><main class="export-package-body"><section class="export-package-selection"><div class="editor-panel-heading"><span>PACKAGE CONTENTS</span><span id="export-package-count">00</span></div><div id="export-package-list" class="export-package-list"></div><p class="editor-note">ONE FOLDER PER CATEGORY / ONE FILE PER EXPORT</p></section><section class="export-package-settings"><div class="editor-panel-heading"><span>FORMATS</span></div><label class="export-package-toggle"><input id="export-package-svg" type="checkbox" checked> SVG / NAMED GROUPS</label><label class="export-package-toggle"><input id="export-package-dxf" type="checkbox" checked> DXF / CAD LAYERS</label><label class="export-package-toggle unavailable"><input id="export-package-dwg" type="checkbox" disabled> DWG / CAD WRITER REQUIRED</label><p class="editor-note">DWG EXPORT IS UNAVAILABLE UNTIL A LICENSED CAD WRITER IS ADDED. DXF CARRIES THE SAME EDITABLE CAD LAYERS.</p><div class="editor-panel-heading export-include-heading"><span>INCLUDE</span></div><label class="export-package-toggle"><input id="export-include-geometry" type="checkbox" checked> GEOMETRY</label><label class="export-package-toggle"><input id="export-include-border" type="checkbox"> DRAFTING BORDER</label><label class="export-package-toggle"><input id="export-include-source" type="checkbox"> SOURCE CONTEXT</label><label class="export-package-toggle"><input id="export-include-grid" type="checkbox"> GRID + FRAME</label></section></main><footer class="editor-footer"><span>COORDINATES REMAIN UNCHANGED</span><button id="download-export-package" class="editor-save">DOWNLOAD EXPORT PACKAGE</button></footer></div></section>
+  <section id="tangent-import-overlay" class="editor-overlay tangent-import-overlay" aria-hidden="true" aria-label="Place Tangent forms in an Overlap Board"><div class="editor-shell tangent-import-shell"><header class="editor-header"><div><span class="editor-kicker">TANGENT SYSTEMS / SOURCE PACKET</span><strong>ADD TO OVERLAP</strong></div><div class="editor-actions"><button id="tangent-import-cancel">CANCEL</button></div></header><main class="tangent-import-body"><section><div class="editor-panel-heading"><span>SOURCE FORMS</span><span id="tangent-import-count">00</span></div><div id="tangent-import-list" class="tangent-import-list"></div><p class="editor-note">THESE REMAIN EDITABLE ORGANIZER LAYERS. THEIR TANGENT IDENTITY AND GEOMETRY REVISION ARE PRESERVED.</p></section><section><div class="editor-panel-heading"><span>TARGET</span></div><label class="tangent-import-field">PROJECT<select id="tangent-target-project"></select></label><label class="tangent-import-field">BOARD<select id="tangent-target-board"></select></label><p class="editor-note">CHOOSE THE BOARD THAT SHOULD RECEIVE THIS SOURCE SET. EXISTING LAYERS ARE PRESERVED.</p></section></main><footer class="editor-footer"><span>NO SOURCE GEOMETRY IS OVERWRITTEN</span><button id="tangent-import-confirm" class="editor-save">ADD TO BOARD</button></footer></div></section>
+  <section id="imagine-overlay" class="imagine-overlay" aria-hidden="true"><div class="imagine-shell"><header><span>INTERPRET SPACE / FIXED FIGURE</span><button id="close-imagine-space">CLOSE</button></header><div class="imagine-stage"><svg id="imagine-canvas" viewBox="0 0 820 720"><g id="imagine-geometry"></g><g id="imagine-figure"><circle cx="410" cy="415" r="8" fill="currentColor"/><path d="M410 423 L410 470 M410 438 L388 452 M410 438 L432 452 M410 470 L394 505 M410 470 L426 505" fill="none" stroke="currentColor" stroke-width="4"/></g></svg></div><div class="imagine-controls"><label>GEOMETRY SCALE <input id="imagine-scale" type="range" min="50" max="300" value="100"></label><span id="imagine-scale-output">100%</span></div></div></section>
+  <script src="vendor/polygon-clipping.umd.min.js"></script>
+  <script type="module" src="app-clean.mjs"></script>
+</body>
+</html>
