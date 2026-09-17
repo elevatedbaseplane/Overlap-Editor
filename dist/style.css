@@ -111,4 +111,5 @@ body.mode-neo .global-controls label:has(input:checked)::before,body.mode-neo .e
 
 /* Editor Library and export action. */
 #editor-exports{display:none!important}
+.library-export-summary,.library-local-save-note{display:none!important}
 .editor-user-choice{display:flex!important;justify-content:space-between}.editor-export-selected{margin-right:auto;min-width:190px;border:1px solid #000!important;background:#000!important;color:#fff!important;padding:8px 14px!important;font:10px "OCR-B","OCR B Std",monospace!important;font-weight:700;letter-spacing:.05em;cursor:pointer}.editor-export-selected:hover{background:#fff!important;color:#000!important}body.mode-neo .editor-export-selected{background:#daff33!important;border-color:#daff33!important;color:#000!important;filter:invert(1)!important}body.mode-neo .editor-export-selected:hover{background:#000!important;color:#daff33!important}.editor-footer #editor-status{margin-left:auto}@media(max-width:720px){.editor-export-selected{min-width:0;padding:7px 8px!important}.editor-footer{gap:7px}.editor-footer span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
