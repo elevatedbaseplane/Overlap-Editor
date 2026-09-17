@@ -13,8 +13,8 @@
     <div class="brand">B.A.M: OVERLAP EDITOR..... BETA</div>
     <span class="build">BUILD 01 <span>/ COMPOSITION STUDIES</span></span>
     <div class="history-actions">
-      <button id="toggle-projects" class="quiet">BOARDS −</button>
       <button id="import-button" class="quiet">IMPORT</button>
+      <button id="toggle-projects" class="quiet">LIBRARY −</button>
       <button id="toggle-controls" class="quiet">CONTROLS −</button>
     </div>
   </header>
@@ -27,8 +27,9 @@
       <div id="board-content-reservoir" hidden></div>
       <div id="project-list" hidden></div>
       <div id="active-board-content">
-      <div class="iteration-heading"><span>BOARDS</span><span class="saved-board-heading-actions"><button id="compare-boards" class="rail-action">COMPARE <span id="compare-board-count">00</span></button></span></div><div id="iteration-list" class="iteration-list"></div>
+      <div class="iteration-heading"><span>BOARDS</span><span id="compare-board-count" hidden>00</span></div>
       <div id="saved-board-actions" class="project-actions"><button id="new-board" class="rail-action">NEW BOARD</button><button id="rename-board" class="rail-action">RENAME</button><button id="duplicate-board" class="rail-action">DUPLICATE</button><button id="delete-board" class="rail-action">DELETE</button></div>
+      <div id="iteration-list" class="iteration-list"></div>
       <div class="iteration-heading"><span id="active-board-library-title">EDITOR EXPORTS</span></div>
       <details id="editor-exports" class="parameter-panel" open><summary>EDITOR EXPORTS</summary><details><summary>EDITED BOARDS <span id="edited-board-count">0</span></summary><div id="edited-board-list" class="iteration-list"></div></details><details><summary>EDITED FORMS <span id="edited-form-count">0</span></summary><div id="edited-form-list" class="iteration-list"></div></details><details><summary>INTERSTITIAL SPACES <span id="interstitial-count">0</span></summary><div id="interstitial-list" class="iteration-list"></div></details><details><summary>RESIDUAL FIELD CREATIONS <span id="residual-field-count">0</span></summary><div id="residual-field-list" class="iteration-list"></div></details><details><summary>OUTPUT CHUNKS <span id="output-chunk-count">0</span></summary><div id="output-chunk-list" class="iteration-list"></div></details></details><div class="project-actions export-library-actions"><button id="export-selected-exports" class="rail-action">EXPORT SELECTED 00</button><button id="export-active-board" class="rail-action">EXPORT BOARD</button></div><div class="project-actions"><button id="rename-derived" class="rail-action">RENAME</button><button id="delete-derived" class="rail-action">DELETE</button></div>
       <p>SAVED LOCALLY IN THIS BROWSER.</p>
@@ -117,7 +118,7 @@
         <button id="edit-field" class="editor-save" disabled>CUSTOMIZE</button>
       </div>
       <div class="editor-workspace">
-        <aside id="editor-export-rail" class="editor-export-rail"><div class="editor-panel-heading">BOARD LIBRARIES</div><div id="editor-export-tree"></div></aside>
+        <aside id="editor-export-rail" class="editor-export-rail"><div class="editor-panel-heading">LIBRARY</div><div id="editor-export-tree"></div></aside>
         <div class="editor-canvas-wrap">
           <div class="editor-canvas-label"><span id="editor-board-name">TEMPORARY DERIVED SESSION</span><span id="editor-context-note">NO GEOMETRY HAS BEEN ALTERED</span></div><button id="editor-preview-close" class="editor-preview-close" hidden aria-label="Return to current board">[X]</button><div class="global-controls editor-display-controls" aria-label="Editor display"><label><input id="editor-show-grid" type="checkbox" checked> SHOW GRID</label><label><input id="editor-show-fill" type="checkbox" checked> SHOW FILL</label><label><input id="editor-show-double" type="checkbox"> SHOW BORDER</label></div>
           <svg id="editor-canvas" viewBox="0 0 820 720" role="img" aria-label="Derived overlap representation"><g id="editor-grid"></g><g id="editor-forms"></g><g id="editor-overlaps"></g><g id="editor-zone-selection"></g></svg>
@@ -131,7 +132,7 @@
           <p class="editor-note">Both actions create new derived objects. Source forms and the Organizer remain unchanged.</p><div id="editor-preview-actions" class="editor-preview-actions" hidden><button id="editor-return-board" class="editor-rail-button">RETURN TO CURRENT BOARD</button><button id="editor-add-session" class="editor-action">ADD TO SESSION</button><button id="editor-open-board" class="editor-rail-button">OPEN AS BOARD</button></div>
         </aside>
       </div>
-      <footer class="editor-footer"><span id="editor-status">ORGANIZER REMAINS UNTOUCHED</span><span>EDITING TOOLS ARRIVE NEXT</span></footer>
+      <footer class="editor-footer"><button id="editor-export-selected" class="editor-export-selected" type="button">EXPORT SELECTED 00</button><span id="editor-status">ORGANIZER REMAINS UNTOUCHED</span></footer>
     </div>
   </section>
   <section id="evaluation-overlay" class="evaluation-overlay" aria-hidden="true">
