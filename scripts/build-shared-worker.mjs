@@ -9,7 +9,8 @@ const assetFiles={
   '/app-clean.mjs':'dist/app-clean.mjs',
   '/app.mjs':'dist/app.mjs',
   '/batch7.mjs':'dist/batch7.mjs',
-  '/evaluation.mjs':'dist/evaluation.mjs'
+  '/evaluation.mjs':'dist/evaluation.mjs',
+  '/vendor/polygon-clipping.umd.min.js':'dist/vendor/polygon-clipping.umd.min.js'
 };
 const assets={};
 for(const [route,file] of Object.entries(assetFiles))assets[route]=Buffer.from(await readFile(resolve(root,file))).toString('base64');
