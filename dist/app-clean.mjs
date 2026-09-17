@@ -10,10 +10,10 @@ const store=loadStore();
    migrated once into BRANDON, preserving all board and source lineage. */
 const legacyProjects=Array.isArray(store.projects)?store.projects:[],legacyActive=store.active;
 const blankProject=()=>({id:uid(),name:'OVERLAP STUDIES',iterations:[],sourceBoards:[],gridBoards:[],interstitials:[],editedShapes:[],outputChunks:[]});
-store.users=store.users||{};
-if(!store.users.BRANDON)store.users.BRANDON={projects:legacyProjects.length?legacyProjects:[blankProject()],active:legacyActive||legacyProjects[0]?.id};
-['ALEJANDRO','CORI'].forEach(name=>{if(!store.users[name])store.users[name]={projects:[blankProject()],active:null};if(!store.users[name].projects?.length)store.users[name].projects=[blankProject()];if(!store.users[name].active)store.users[name].active=store.users[name].projects[0].id});
-store.activeUser=['BRANDON','ALEJANDRO','CORI'].includes(store.activeUser)?store.activeUser:'BRANDON';
+const existingUsers=store.users&&Object.keys(store.users).length?store.users:null;
+store.users=existingUsers||{BRANDON:{projects:legacyProjects.length?legacyProjects:[blankProject()],active:legacyActive||legacyProjects[0]?.id},ALEJANDRO:{projects:[blankProject()],active:null},CORI:{projects:[blankProject()],active:null}};
+Object.values(store.users).forEach(library=>{if(!library.projects?.length)library.projects=[blankProject()];if(!library.active)library.active=library.projects[0].id});
+store.activeUser=store.users[store.activeUser]?store.activeUser:Object.keys(store.users)[0];
 Object.defineProperties(store,{projects:{configurable:true,enumerable:false,get(){return store.users[store.activeUser].projects},set(value){store.users[store.activeUser].projects=value}},active:{configurable:true,enumerable:false,get(){return store.users[store.activeUser].active},set(value){store.users[store.activeUser].active=value}}});
 store.projects.forEach(p=>Object.assign(p,{iterations:p.iterations||[],sourceBoards:p.sourceBoards||[],gridBoards:p.gridBoards||[],interstitials:p.interstitials||[],editedShapes:p.editedShapes||[],outputChunks:p.outputChunks||[]}));
 const project=()=>store.projects.find(p=>p.id===store.active)||store.projects[0];
@@ -57,7 +57,7 @@ const sharedLibraryEndpoint='/api/shared-library';
 let cloudRevision=0,cloudReady=false,cloudSaveTimer=null,cloudSaving=false;
 const saveLocalLibrary=save;
 const cloudPayload=()=>({version:1,users:store.users,exportCriteria:store.exportCriteria||{}});
-const normaliseCloudUsers=()=>{['BRANDON','ALEJANDRO','CORI'].forEach(name=>{if(!store.users[name])store.users[name]={projects:[blankProject()],active:null};if(!Array.isArray(store.users[name].projects)||!store.users[name].projects.length)store.users[name].projects=[blankProject()];if(!store.users[name].active)store.users[name].active=store.users[name].projects[0].id;store.users[name].projects.forEach(entry=>Object.assign(entry,{iterations:entry.iterations||[],sourceBoards:entry.sourceBoards||[],gridBoards:entry.gridBoards||[],interstitials:entry.interstitials||[],editedShapes:entry.editedShapes||[],residualFieldCreations:entry.residualFieldCreations||[],outputChunks:entry.outputChunks||[]}))})};
+const normaliseCloudUsers=()=>{if(!store.users||!Object.keys(store.users).length){const first=blankProject();store.users={BRANDON:{projects:[first],active:first.id}}}Object.values(store.users).forEach(library=>{if(!Array.isArray(library.projects)||!library.projects.length)library.projects=[blankProject()];if(!library.active)library.active=library.projects[0].id;library.projects.forEach(entry=>Object.assign(entry,{iterations:entry.iterations||[],sourceBoards:entry.sourceBoards||[],gridBoards:entry.gridBoards||[],interstitials:entry.interstitials||[],editedShapes:entry.editedShapes||[],residualFieldCreations:entry.residualFieldCreations||[],outputChunks:entry.outputChunks||[]}))});if(!store.users[store.activeUser])store.activeUser=Object.keys(store.users)[0]};
 const loadSharedLibrary=async()=>{try{const response=await fetch(sharedLibraryEndpoint,{headers:{accept:'application/json'}});if(!response.ok)throw new Error('unavailable');const shared=await response.json();cloudRevision=Number(shared.revision)||0;if(shared.payload){const payload=shared.payload;if(payload?.users){store.users=payload.users;store.exportCriteria=payload.exportCriteria||{};normaliseCloudUsers();store.libraryHome=true;const board=activeBoard();if(board?.state)restore(board.state);$('status').textContent='SHARED LIBRARY LOADED';}}else if(localStorage.overlapEditorStore&&confirm('SHARED LIBRARY IS EMPTY. ADD THIS BROWSER\'S EXISTING LIBRARIES TO THE SHARED STUDIO?')){cloudReady=true;await saveSharedLibrary()}cloudReady=true;queueRender()}catch{cloudReady=false;$('status').textContent='SHARED LIBRARY UNAVAILABLE / LOCAL COPY ACTIVE'}};
 const saveSharedLibrary=async()=>{if(!cloudReady||cloudSaving)return;cloudSaving=true;try{const response=await fetch(sharedLibraryEndpoint,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({revision:cloudRevision,payload:cloudPayload()})});if(response.status===409){$('status').textContent='SHARED LIBRARY CHANGED ELSEWHERE / RELOAD TO SYNC';return}if(!response.ok)throw new Error('save failed');const result=await response.json();cloudRevision=Number(result.revision)||cloudRevision+1;$('status').textContent='SHARED LIBRARY SAVED'}catch{$('status').textContent='SHARED SAVE FAILED / LOCAL COPY KEPT'}finally{cloudSaving=false}};
 save=()=>{saveLocalLibrary();if(!cloudReady)return;clearTimeout(cloudSaveTimer);cloudSaveTimer=setTimeout(saveSharedLibrary,450)};
@@ -598,7 +598,7 @@ document.head.append(Object.assign(document.createElement('style'),{textContent:
 
 /* Library Home separates people from the projects they own. */
 if(typeof store.libraryHome!=='boolean')store.libraryHome=true;
-const libraryPeople=['BRANDON','ALEJANDRO','CORI'];
+const libraryPeople=new Proxy([],{get(target,key){const people=Object.keys(store.users),value=people[key];return typeof value==='function'?value.bind(people):value}});
 function openLibraryHome(){store.libraryHome=true;save();$('status').textContent='LIBRARY / SELECT A USER';queueRender()}
 function openUserLibrary(name){if(!store.users[name])return;store.activeUser=name;store.libraryHome=false;loadActiveUserBoard();save();$('status').textContent=`LIBRARY / ${name}`;queueRender()}
 selectUserLibrary=openUserLibrary;
@@ -637,3 +637,78 @@ saveInterstitial=()=>{
   if(hasSaveableSelection)ensurePersistentEditorBoard();
   saveInterstitialBeforePersistentBoard();
 };
+
+/* Open-studio user libraries can be created and removed from Library Home. */
+function addUserLibrary(){
+  const input=prompt('User name');
+  if(input===null)return;
+  const name=input.trim().replace(/\s+/g,' ').toUpperCase();
+  if(!name){$('status').textContent='ENTER A USER NAME';return}
+  if(store.users[name]){$('status').textContent=`USER ALREADY EXISTS / ${name}`;return}
+  const firstProject=blankProject();
+  store.users[name]={projects:[firstProject],active:firstProject.id,selectedBoardId:null};
+  store.activeUser=name;
+  store.libraryHome=false;
+  selectedIterationId=null;
+  state=makeStarter();
+  state.selected=new Set();
+  boardSelections.clear();
+  save();
+  $('status').textContent=`USER ADDED / ${name}`;
+  queueRender();
+}
+function deleteUserLibrary(name){
+  const people=Object.keys(store.users);
+  if(people.length<=1){$('status').textContent='AT LEAST ONE USER LIBRARY IS REQUIRED';return}
+  if(!store.users[name]||!confirm(`Delete ${name} and all projects and boards in this library?`))return;
+  const deletingActive=store.activeUser===name;
+  delete store.users[name];
+  if(deletingActive){
+    store.activeUser=Object.keys(store.users)[0];
+    loadActiveUserBoard();
+  }
+  store.libraryHome=true;
+  save();
+  $('status').textContent=`USER DELETED / ${name}`;
+  queueRender();
+}
+const renderBoardsBeforeUserManagement=renderBoards;
+renderBoards=()=>{
+  renderBoardsBeforeUserManagement();
+  if(!store.libraryHome)return;
+  const tree=$('board-tree'),promptLabel=document.createElement('div'),actions=document.createElement('div');
+  promptLabel.className='library-home-label';
+  promptLabel.textContent='SELECT USER LIBRARY';
+  actions.className='library-user-actions';
+  const add=document.createElement('button');
+  add.className='rail-action';
+  add.dataset.addLibraryUser='true';
+  add.textContent='ADD USER';
+  actions.append(add);
+  const rows=libraryPeople.map(name=>{
+    const library=store.users[name],row=document.createElement('div'),open=document.createElement('button'),remove=document.createElement('button');
+    row.className='library-user-row';
+    open.className='library-home-choice';
+    open.dataset.libraryUser=name;
+    open.innerHTML=`<span>${name}</span><span>${String(library.projects.length).padStart(2,'0')} PROJECT${library.projects.length===1?'':'S'}</span>`;
+    remove.className='library-user-delete';
+    remove.dataset.deleteLibraryUser=name;
+    remove.setAttribute('aria-label',`Delete ${name}`);
+    remove.textContent='[X]';
+    row.append(open,remove);
+    return row;
+  });
+  tree.replaceChildren(promptLabel,actions,...rows);
+};
+const boardTreeClickBeforeUserManagement=$('board-tree').onclick;
+$('board-tree').onclick=event=>{
+  const add=event.target.closest('[data-add-library-user]');
+  if(add){addUserLibrary();return}
+  const remove=event.target.closest('[data-delete-library-user]');
+  if(remove){deleteUserLibrary(remove.dataset.deleteLibraryUser);return}
+  boardTreeClickBeforeUserManagement?.(event);
+};
+
+/* Shift-click edits geometry only; it must never start browser text selection. */
+$('editor-canvas').addEventListener('pointerdown',event=>{if(event.shiftKey)event.preventDefault()});
+queueRender();
