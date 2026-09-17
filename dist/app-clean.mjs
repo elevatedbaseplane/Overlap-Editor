@@ -606,3 +606,34 @@ renderBoards=()=>{const tree=$('board-tree'),activeContent=$('active-board-conte
 $('board-tree').onclick=event=>{const home=event.target.closest('[data-library-home]');if(home){openLibraryHome();return}const user=event.target.closest('[data-library-user]');if(user){openUserLibrary(user.dataset.libraryUser);return}const disclosure=event.target.closest('[data-board-disclosure]');if(disclosure){const id=disclosure.dataset.boardDisclosure;if(id===store.active){collapsedBoards.has(id)?collapsedBoards.delete(id):collapsedBoards.add(id);queueRender()}else selectProjectInUser(id);return}const projectButton=event.target.closest('[data-board]');if(projectButton)selectProjectInUser(projectButton.dataset.board)};
 document.head.append(Object.assign(document.createElement('style'),{textContent:'.library-home-label,.library-user-identity{padding:9px 7px;border-bottom:1px solid #000;font:10px "OCR-B","OCR B Std",monospace;letter-spacing:.06em}.library-home-choice{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 8px;border:0;border-bottom:1px solid #000;background:#fff;color:#000;text-align:left;font:11px "OCR-B","OCR B Std",monospace;cursor:pointer}.library-home-choice:hover,.library-home-choice:focus-visible{background:#000;color:#fff;outline:0}.library-home-choice span:last-child{font-size:9px}.library-back{display:block;width:100%;padding:9px 7px;border:0;border-bottom:1px solid #000;background:#fff;color:#000;text-align:left;font:10px "OCR-B","OCR B Std",monospace;cursor:pointer}.library-back:hover,.library-back:focus-visible{background:#000;color:#fff;outline:0}.library-user-identity{background:#000;color:#fff;font-size:11px}.project-actions[hidden]{display:none!important}'}));
 queueRender();
+
+/* A fresh project can reach the Editor before its first Board is saved. Create
+   that persistent Board only when a valid derived save is actually requested. */
+function ensurePersistentEditorBoard(){
+  const existing=activeBoard();
+  if(existing)return existing;
+  const projectEntry=project(),ordinal=projectEntry.iterations.length+1,name=`WORKING BOARD ${String(ordinal).padStart(2,'0')}`,board={id:uid(),name,state:snapshot()};
+  board.state.boardName=name;
+  ensureBoardLibrary(board);
+  projectEntry.iterations.push(board);
+  selectedIterationId=board.id;
+  state.boardName=name;
+  if(store.users?.[store.activeUser])store.users[store.activeUser].selectedBoardId=board.id;
+  editorSessionProjectId=projectEntry.id;
+  editorSessionBoardId=board.id;
+  editorLibraryRoute={level:'board',projectId:projectEntry.id,boardId:board.id};
+  save();
+  return board;
+}
+const saveDerivedFormBeforePersistentBoard=saveDerivedForm;
+saveDerivedForm=operation=>{
+  const hasSaveableSelection=operation==='isolated'&&editorActiveForm!==null&&editorZones.some((zone,index)=>zone.members.includes(editorActiveForm)&&editorZoneSelection.has(index));
+  if(hasSaveableSelection)ensurePersistentEditorBoard();
+  saveDerivedFormBeforePersistentBoard(operation);
+};
+const saveInterstitialBeforePersistentBoard=saveInterstitial;
+saveInterstitial=()=>{
+  const hasSaveableSelection=editorCustomizing&&editorZones.some((_,index)=>editorZoneSelection.has(index));
+  if(hasSaveableSelection)ensurePersistentEditorBoard();
+  saveInterstitialBeforePersistentBoard();
+};
