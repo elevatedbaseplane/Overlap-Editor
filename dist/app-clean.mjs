@@ -413,7 +413,7 @@ document.head.append(Object.assign(document.createElement('style'),{textContent:
 /* Layout Organizer keyboard navigation. Right Shift changes zones; arrows navigate; Enter activates. */
 document.head.append(Object.assign(document.createElement('style'),{textContent:'.keyboard-zone-active{background:#000!important;color:#fff!important;border-color:#000!important}.workspace.keyboard-zone-active{box-shadow:inset 0 0 0 2px #000}.keyboard-focus{outline:2px solid #000!important;outline-offset:2px;position:relative;z-index:4}'}));
 let keyboardZone='workspace',keyboardPanelFocus={projects:0,controls:0},keyboardLane='shapes',keyboardBarIndex=0,keyboardHoverId=null,keyboardMoveMode=false,keyboardMoveStart=null;
-const keyboardOverlayOpen=()=>['editor-overlay','review-overlay','comparison-overlay','export-overlay','tangent-import-overlay','evaluation-overlay','imagine-overlay'].some(id=>$(id)?.classList.contains('open'));
+const keyboardOverlayOpen=()=>['editor-overlay','review-overlay','comparison-overlay','type-review-overlay','type-comparison-overlay','export-overlay','tangent-import-overlay','evaluation-overlay','imagine-overlay'].some(id=>$(id)?.classList.contains('open'));
 const keyboardVisible=element=>!!element&&element.getClientRects().length>0&&!element.disabled;
 const keyboardClearFocus=()=>document.querySelectorAll('.keyboard-focus').forEach(element=>element.classList.remove('keyboard-focus'));
 function setKeyboardZone(zone){keyboardZone=zone;keyboardClearFocus();$('toggle-projects').classList.toggle('keyboard-zone-active',zone==='projects');$('toggle-controls').classList.toggle('keyboard-zone-active',zone==='controls');document.querySelector('.workspace')?.classList.toggle('keyboard-zone-active',zone==='workspace');$('status').textContent=zone==='workspace'?'KEYBOARD / WORKSPACE':`KEYBOARD / ${zone.toUpperCase()} TAB`;queueRender()}
@@ -712,3 +712,131 @@ $('board-tree').onclick=event=>{
 /* Shift-click edits geometry only; it must never start browser text selection. */
 $('editor-canvas').addEventListener('pointerdown',event=>{if(event.shiftKey)event.preventDefault()});
 queueRender();
+
+/* Review by Type indexes saved assessments across the active user's entire
+   library. Entries remain references to their original Board exports. */
+const typeReviewKinds={form:'EDITED FORMS',interstitial:'INTERSTITIAL SPACES',residual:'RESIDUAL FIELDS',chunk:'OUTPUT CHUNKS'};
+let typeReviewType='LOBBY',typeReviewOrigin=null,typeReviewDetailKey=null,typeReviewView='fill',typeReviewScrollTop=0;
+const typeReviewGroups=new Set(Object.keys(typeReviewKinds)),typeReviewSelection=new Set();
+
+function savedTypeAssessment(key,type){
+  const record=store.exportCriteria[key];
+  if(!record)return null;
+  const byType=record.criteriaByType||{},hasTyped=Object.prototype.hasOwnProperty.call(byType,type),isLegacy=record.type===type&&record.criteria;
+  if(!hasTyped&&!isLegacy)return null;
+  const criteria={...criterionDefaults(type),...(hasTyped?byType[type]:record.criteria)};
+  const notes=Object.prototype.hasOwnProperty.call(record.notesByType||{},type)?record.notesByType[type]:(record.type===type?record.notes||'':'');
+  return {criteria,notes,savedAt:record.savedAt||null};
+}
+
+function typeReviewIndex(type=typeReviewType){
+  const results=[];
+  store.projects.forEach(projectEntry=>projectEntry.iterations.forEach(board=>libraryEntries(projectEntry.id,board.id).forEach(([,kind,items])=>{
+    if(!typeReviewKinds[kind])return;
+    items.forEach(item=>{
+      const key=reviewKey(projectEntry.id,board.id,kind,item.id),assessment=savedTypeAssessment(key,type);
+      if(assessment)results.push({key,project:projectEntry,board,kind,item,assessment});
+    });
+  })));
+  return results.sort((a,b)=>(a.project.name||'').localeCompare(b.project.name||'')||(a.board.name||'').localeCompare(b.board.name||'')||(a.item.name||'').localeCompare(b.item.name||''));
+}
+
+function typeReviewScoreRow(id,label,value,className='type-review-score'){
+  const row=document.createElement('div'),name=document.createElement('span'),track=document.createElement('span'),fill=document.createElement('i'),score=document.createElement('b');
+  row.className=className;name.textContent=label;track.className=className==='type-review-score'?'type-review-score-track':'type-review-mini-track';fill.style.width=`${Math.max(0,Math.min(5,Number(value)||0))*20}%`;track.append(fill);score.textContent=String(value??3);row.append(name,track,score);row.title=`${id} / ${label}`;return row;
+}
+
+function typeReviewCard(ref){
+  const card=document.createElement('article'),header=document.createElement('div'),checkLabel=document.createElement('label'),check=document.createElement('input'),open=document.createElement('button'),thumb=document.createElement('button'),meta=document.createElement('div'),scores=document.createElement('div'),note=document.createElement('div');
+  card.className=`type-review-card ${typeReviewDetailKey===ref.key?'selected-detail':''}`;card.dataset.typeReviewCard=ref.key;
+  header.className='type-review-card-header';checkLabel.className='type-review-check';check.type='checkbox';check.checked=typeReviewSelection.has(ref.key);check.dataset.typeReviewSelect=ref.key;check.setAttribute('aria-label',`Select ${ref.item.name} for comparison`);checkLabel.append(check);
+  open.className='type-review-card-open';open.type='button';open.dataset.typeReviewOpen=ref.key;open.textContent=ref.item.name||'UNTITLED EXPORT';
+  thumb.className='type-review-thumb';thumb.type='button';thumb.dataset.typeReviewOpen=ref.key;thumb.setAttribute('aria-label',`Show saved ${typeReviewType.toLowerCase()} criteria for ${ref.item.name}`);thumb.append(reviewPreview(ref.item));
+  meta.className='type-review-card-meta';meta.textContent=`${typeReviewKinds[ref.kind]} / ${ref.project.name} / ${ref.board.name}`;
+  scores.className='type-review-mini';criterionTemplateFor(typeReviewType).criteria.forEach(([id,label])=>scores.append(typeReviewScoreRow(id,label,ref.assessment.criteria[id],'type-review-mini-row')));
+  note.className='type-review-note-mark';note.textContent=ref.assessment.notes?.trim()?'● NOTE SAVED':'○ NO NOTE';
+  header.append(checkLabel,open);card.append(header,thumb,meta,scores,note);return card;
+}
+
+function renderTypeReviewDetail(ref){
+  const panel=$('type-review-detail');panel.replaceChildren();
+  if(!ref){const empty=document.createElement('div');empty.className='type-review-detail-empty';empty.textContent='SELECT A CARD TO VIEW ITS SAVED CRITERIA + NOTES';panel.append(empty);return}
+  const title=document.createElement('h2'),lineage=document.createElement('p'),preview=document.createElement('div'),scores=document.createElement('div'),notes=document.createElement('div'),notesLabel=document.createElement('b'),notesBody=document.createElement('p');
+  title.textContent=ref.item.name||'UNTITLED EXPORT';lineage.className='type-review-detail-lineage';lineage.textContent=`${typeReviewKinds[ref.kind]} / ${ref.project.name} / ${ref.board.name}`;
+  preview.className='type-review-detail-preview';preview.append(reviewPreview(ref.item));
+  criterionTemplateFor(typeReviewType).criteria.forEach(([id,label])=>scores.append(typeReviewScoreRow(id,label,ref.assessment.criteria[id])));
+  notes.className='type-review-notes';notesLabel.textContent='SAVED NOTES';notesBody.textContent=ref.assessment.notes?.trim()||'NO NOTES SAVED FOR THIS TYPE.';notes.append(notesLabel,notesBody);
+  panel.append(title,lineage,preview,scores,notes);
+}
+
+function renderTypeReview(){
+  const all=typeReviewIndex(),visible=all.filter(ref=>typeReviewGroups.has(ref.kind)),list=$('type-review-list');
+  $('type-review-title').textContent=typeReviewType;$('type-review-type').value=typeReviewType;$('type-review-count').textContent=String(visible.length).padStart(2,'0');$('type-review-user').textContent=`${store.activeUser} / ${String(all.length).padStart(2,'0')} SAVED ${typeReviewType} ASSESSMENTS`;
+  [...typeReviewSelection].forEach(key=>{if(!all.some(ref=>ref.key===key))typeReviewSelection.delete(key)});
+  $('type-review-compare').textContent=`COMPARE SELECTED ${String(typeReviewSelection.size).padStart(2,'0')}`;$('type-review-compare').disabled=typeReviewSelection.size<2||typeReviewSelection.size>4;
+  document.querySelectorAll('[data-type-review-group]').forEach(button=>button.classList.toggle('active',typeReviewGroups.has(button.dataset.typeReviewGroup)));
+  if(visible.length)list.replaceChildren(...visible.map(typeReviewCard));else{const empty=document.createElement('div');empty.className='type-review-empty';empty.textContent=`NO ${typeReviewType} ASSESSMENTS HAVE BEEN SAVED IN THE ACTIVE FILTERS.`;list.replaceChildren(empty)}
+  const detail=all.find(ref=>ref.key===typeReviewDetailKey)||null;if(!detail)typeReviewDetailKey=null;renderTypeReviewDetail(detail);requestAnimationFrame(()=>{list.scrollTop=typeReviewScrollTop});
+}
+
+function openTypeReview(type){
+  typeReviewType=type||typeReviewType;typeReviewOrigin=$('editor-overlay').classList.contains('open')?'editor':null;if(typeReviewOrigin)closeOverlay('editor-overlay');typeReviewSelection.clear();typeReviewDetailKey=null;typeReviewScrollTop=0;syncEditorExtensionBackdrop('type-review-overlay');renderTypeReview();openOverlay('type-review-overlay');
+}
+function closeTypeReview(){closeOverlay('type-review-overlay');if(typeReviewOrigin==='editor')openOverlay('editor-overlay');typeReviewOrigin=null;$('type-review-entry').value=''}
+
+$('type-review-entry').onchange=event=>{if(event.target.value)openTypeReview(event.target.value)};
+$('type-review-type').onchange=event=>{typeReviewType=event.target.value;typeReviewSelection.clear();typeReviewDetailKey=null;typeReviewScrollTop=0;renderTypeReview()};
+$('type-review-filters').onclick=event=>{const button=event.target.closest('[data-type-review-group]');if(!button)return;const kind=button.dataset.typeReviewGroup;typeReviewGroups.has(kind)?typeReviewGroups.delete(kind):typeReviewGroups.add(kind);typeReviewScrollTop=0;renderTypeReview()};
+$('type-review-list').onclick=event=>{const open=event.target.closest('[data-type-review-open]');if(!open)return;typeReviewScrollTop=$('type-review-list').scrollTop;typeReviewDetailKey=open.dataset.typeReviewOpen;renderTypeReview()};
+$('type-review-list').onchange=event=>{const input=event.target.closest('[data-type-review-select]');if(!input)return;typeReviewScrollTop=$('type-review-list').scrollTop;const key=input.dataset.typeReviewSelect;if(input.checked&&typeReviewSelection.size>=4){input.checked=false;$('status').textContent='TYPE REVIEW / SELECT UP TO 04';return}input.checked?typeReviewSelection.add(key):typeReviewSelection.delete(key);renderTypeReview()};
+$('type-review-clear').onclick=()=>{typeReviewSelection.clear();typeReviewDetailKey=null;renderTypeReview()};
+$('type-review-back').onclick=closeTypeReview;$('type-review-close').onclick=closeTypeReview;
+
+function typeComparisonRefs(){const indexed=typeReviewIndex();return [...typeReviewSelection].map(key=>indexed.find(ref=>ref.key===key)).filter(Boolean)}
+function typeComparisonCard(ref){
+  const card=document.createElement('article'),header=document.createElement('header'),name=document.createElement('span'),kind=document.createElement('span'),preview=document.createElement('div'),svg=document.createElementNS(NS,'svg'),criteria=document.createElement('div'),notes=document.createElement('div'),lineage=document.createElement('div');
+  card.className='type-comparison-card';name.textContent=ref.item.name||'UNTITLED EXPORT';kind.textContent=typeReviewKinds[ref.kind];header.append(name,kind);
+  preview.className='type-comparison-preview';svg.setAttribute('viewBox','0 0 820 720');svg.setAttribute('preserveAspectRatio','xMidYMid meet');drawExtractionView(svg,ref.item,ref.key,typeReviewView,610,400);preview.append(svg,extractionTransformControls(ref.key,renderTypeComparison));
+  criteria.className='type-comparison-criteria';criterionTemplateFor(typeReviewType).criteria.forEach(([id,label])=>criteria.append(typeReviewScoreRow(id,label,ref.assessment.criteria[id])));
+  notes.className='type-comparison-notes';notes.textContent=ref.assessment.notes?.trim()||'NO NOTES SAVED FOR THIS TYPE.';
+  lineage.className='type-comparison-lineage';lineage.textContent=`${ref.project.name} / ${ref.board.name}`;criteria.append(notes,lineage);card.append(header,preview,criteria);return card;
+}
+function renderTypeComparison(){const refs=typeComparisonRefs();$('type-comparison-title').textContent=typeReviewType;$('type-comparison-count').textContent=String(refs.length).padStart(2,'0');$('type-comparison-fill').textContent=`[${typeReviewView==='fill'?'X':' '}] SHOW FILL`;$('type-comparison-border').textContent=`[${typeReviewView==='border'?'X':' '}] SHOW BORDER`;$('type-comparison-list').replaceChildren(...refs.map(typeComparisonCard))}
+function openTypeComparison(){if(typeReviewSelection.size<2||typeReviewSelection.size>4)return;typeReviewScrollTop=$('type-review-list').scrollTop;closeOverlay('type-review-overlay');renderTypeComparison();syncEditorExtensionBackdrop('type-comparison-overlay');openOverlay('type-comparison-overlay')}
+function closeTypeComparison(returnToReview=true){closeOverlay('type-comparison-overlay');if(returnToReview){renderTypeReview();syncEditorExtensionBackdrop('type-review-overlay');openOverlay('type-review-overlay')}else{if(typeReviewOrigin==='editor')openOverlay('editor-overlay');typeReviewOrigin=null;$('type-review-entry').value=''}}
+$('type-review-compare').onclick=openTypeComparison;$('type-comparison-back').onclick=()=>closeTypeComparison(true);$('type-comparison-close').onclick=()=>closeTypeComparison(false);
+$('type-comparison-fill').onclick=()=>{typeReviewView='fill';renderTypeComparison()};$('type-comparison-border').onclick=()=>{typeReviewView='border';renderTypeComparison()};
+document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;if($('type-comparison-overlay').classList.contains('open')){event.preventDefault();event.stopImmediatePropagation();closeTypeComparison(true);return}if($('type-review-overlay').classList.contains('open')){event.preventDefault();event.stopImmediatePropagation();closeTypeReview()}},true);
+
+/* Shared numeric slider language: every range shows its current value as a
+   solid bar followed by a quiet remainder, including dynamically drawn cards. */
+function syncNumberSlider(input){
+  if(!(input instanceof HTMLInputElement)||input.type!=='range')return;
+  const min=Number(input.min||0),max=Number(input.max||100),value=Number(input.value),percent=max===min?0:Math.max(0,Math.min(100,((value-min)/(max-min))*100));
+  input.style.setProperty('--range-fill',`${percent}%`);
+}
+function syncNumberSliders(root=document){
+  if(root instanceof HTMLInputElement&&root.type==='range')syncNumberSlider(root);
+  root.querySelectorAll?.('input[type="range"]').forEach(syncNumberSlider);
+}
+syncNumberSliders();
+document.addEventListener('input',event=>syncNumberSlider(event.target),true);
+document.addEventListener('change',event=>syncNumberSlider(event.target),true);
+new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(node=>{if(node.nodeType===1)syncNumberSliders(node)}))).observe(document.body,{childList:true,subtree:true});
+
+/* Final approved slider rendering. This is appended after legacy runtime styles
+   so browser-native tracks cannot reintroduce ticks or a visible handle. */
+document.head.append(Object.assign(document.createElement('style'),{textContent:`
+html body input[type="range"],html body .criterion-control input[type="range"]{appearance:none!important;-webkit-appearance:none!important;height:18px!important;margin:7px 0 17px!important;border:0!important;background:transparent!important;box-shadow:none!important}
+html body .criterion-control input[type="range"]{margin:0!important}
+html body input[type="range"]::-webkit-slider-runnable-track,html body .criterion-control input[type="range"]::-webkit-slider-runnable-track{height:6px!important;border:0!important;border-radius:0!important;background:linear-gradient(to right,var(--range-ink,#000) 0,var(--range-ink,#000) var(--range-fill,50%),var(--range-rest,#dedede) var(--range-fill,50%),var(--range-rest,#dedede) 100%)!important;box-shadow:none!important}
+html body input[type="range"]::-moz-range-track,html body .criterion-control input[type="range"]::-moz-range-track{height:6px!important;border:0!important;border-radius:0!important;background:linear-gradient(to right,var(--range-ink,#000) 0,var(--range-ink,#000) var(--range-fill,50%),var(--range-rest,#dedede) var(--range-fill,50%),var(--range-rest,#dedede) 100%)!important;box-shadow:none!important}
+html body input[type="range"]::-moz-range-progress,html body .criterion-control input[type="range"]::-moz-range-progress{height:6px!important;background:transparent!important}
+html body input[type="range"]::-webkit-slider-thumb,html body .criterion-control input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none!important;appearance:none!important;width:14px!important;height:18px!important;margin-top:-6px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;opacity:0!important}
+html body input[type="range"]::-moz-range-thumb,html body .criterion-control input[type="range"]::-moz-range-thumb{width:14px!important;height:18px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;opacity:0!important}
+html body .range-ticks{display:none!important}
+html body .extraction-criteria .criterion-row{grid-template-columns:minmax(0,1fr) 112px 18px!important;gap:8px!important}
+html body .extraction-criteria .criterion-row input[type="number"],html body .comparison-criteria .criterion-row input[type="number"],html body .evaluation-criteria .criterion-row input[type="number"],html body .range-label input[type="number"]{box-sizing:border-box!important;width:18px!important;min-width:18px!important;height:18px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#000!important;font:700 10px "OCR-B","OCR B Std",monospace!important;text-align:right!important;box-shadow:none!important;outline-offset:2px!important}
+html body .extraction-criteria .criterion-row input[type="number"]::-webkit-inner-spin-button,html body .extraction-criteria .criterion-row input[type="number"]::-webkit-outer-spin-button,html body .comparison-criteria .criterion-row input[type="number"]::-webkit-inner-spin-button,html body .comparison-criteria .criterion-row input[type="number"]::-webkit-outer-spin-button,html body .range-label input[type="number"]::-webkit-inner-spin-button,html body .range-label input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none!important;appearance:none!important;margin:0!important}
+body.mode-neo input[type="range"],body.mode-neo .criterion-control input[type="range"]{--range-ink:#2500cc;--range-rest:#d8d8d8}
+` }));
