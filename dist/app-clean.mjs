@@ -840,3 +840,136 @@ html body .extraction-criteria .criterion-row input[type="number"],html body .co
 html body .extraction-criteria .criterion-row input[type="number"]::-webkit-inner-spin-button,html body .extraction-criteria .criterion-row input[type="number"]::-webkit-outer-spin-button,html body .comparison-criteria .criterion-row input[type="number"]::-webkit-inner-spin-button,html body .comparison-criteria .criterion-row input[type="number"]::-webkit-outer-spin-button,html body .range-label input[type="number"]::-webkit-inner-spin-button,html body .range-label input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none!important;appearance:none!important;margin:0!important}
 body.mode-neo input[type="range"],body.mode-neo .criterion-control input[type="range"]{--range-ink:#2500cc;--range-rest:#d8d8d8}
 ` }));
+
+/* Tangent imports explicitly choose their destination library. The destination
+   profile can differ from the active workspace without switching or replacing it. */
+function tangentTargetLibrary(){return store.users[$('tangent-target-user').value]||null}
+function renderTangentUserProjects(){
+  const library=tangentTargetLibrary(),projects=$('tangent-target-project');
+  projects.replaceChildren();
+  projects.disabled=!library;
+  if(!library){renderTangentTargetBoardsForUser();return}
+  library.projects.forEach(entry=>{const option=document.createElement('option');option.value=entry.id;option.textContent=entry.name;projects.append(option)});
+  projects.value=library.active&&library.projects.some(entry=>entry.id===library.active)?library.active:library.projects[0]?.id||'';
+  renderTangentTargetBoardsForUser();
+}
+function renderTangentTargetBoardsForUser(){
+  const library=tangentTargetLibrary(),projectId=$('tangent-target-project').value,entry=library?.projects.find(value=>value.id===projectId),boards=$('tangent-target-board');
+  boards.replaceChildren();
+  boards.disabled=!entry;
+  if(!entry){$('tangent-import-confirm').disabled=true;return}
+  entry.iterations.forEach(board=>{const option=document.createElement('option');option.value=board.id;option.textContent=board.name;boards.append(option)});
+  const create=document.createElement('option');create.value='__NEW__';create.textContent='NEW BOARD FROM TANGENT SOURCE';boards.append(create);
+  const preferred=library.selectedBoardId&&entry.iterations.some(board=>board.id===library.selectedBoardId)?library.selectedBoardId:(entry.iterations[0]?.id||'__NEW__');
+  boards.value=preferred;
+  $('tangent-import-confirm').disabled=false;
+}
+renderTangentImport=function(){
+  const payload=pendingTangentImport;if(!payload)return;
+  const users=$('tangent-target-user'),projects=$('tangent-target-project'),boards=$('tangent-target-board'),list=$('tangent-import-list');
+  const choose=document.createElement('option');choose.value='';choose.textContent='SELECT USER PROFILE';choose.disabled=true;choose.selected=true;
+  users.replaceChildren(choose,...Object.keys(store.users).map(name=>{const option=document.createElement('option');option.value=name;option.textContent=name;return option}));
+  projects.replaceChildren();projects.disabled=true;boards.replaceChildren();boards.disabled=true;$('tangent-import-confirm').disabled=true;
+  list.replaceChildren(...payload.forms.map(form=>{const row=document.createElement('div');row.className='tangent-import-row';row.textContent=`${payload.board.name} / ${form.name}`;return row}));
+  $('tangent-import-count').textContent=String(payload.forms.length).padStart(2,'0');
+}
+commitTangentImport=function(){
+  const payload=pendingTangentImport,userName=$('tangent-target-user').value,library=store.users[userName],projectEntry=library?.projects.find(entry=>entry.id===$('tangent-target-project').value);
+  if(!payload||!library||!projectEntry){$('status').textContent='SELECT A USER, PROJECT, AND BOARD';return}
+  const incomingForms=payload.forms.filter(form=>form&&typeof form.path==='string'&&form.path.trim());
+  if(!incomingForms.length){$('status').textContent='TANGENT BOARD HAS NO USABLE FORMS';return}
+  let board=projectEntry.iterations.find(entry=>entry.id===$('tangent-target-board').value);
+  if(!board){board={id:uid(),name:`${payload.board.name} / TANGENT`,state:{grid:tangentGridSize(incomingForms.length),scale:1,layers:[],selected:[],boardName:`${payload.board.name} / TANGENT`}};ensureBoardLibrary(board);projectEntry.iterations.push(board)}
+  const saved=clone(board.state||{grid:tangentGridSize(incomingForms.length),scale:1,layers:[],selected:[],boardName:board.name});
+  saved.layers=Array.isArray(saved.layers)?saved.layers:[];
+  const start=saved.layers.length,total=start+incomingForms.length; saved.grid=tangentGridSize(total);
+  const received=[];
+  incomingForms.forEach((form,index)=>{const source=clone(form.sourceLink||{}),iterationId=form.iterationId||source.iterationId||form.id||uid(),geometryRevision=form.geometryRevision??source.geometryRevision??1,layer={id:uid(),name:form.name||`TANGENT FORM ${String(index+1).padStart(2,'0')}`,path:form.path,sourceBounds:tangentSourceBounds(form),cell:start+index,dx:0,dy:0,rotation:0,visible:true,sourceLink:{...source,provider:'tangent-systems',iterationId,geometryRevision,sourceProjectId:payload.board.id,sourceProjectName:payload.board.name,receivedAt:new Date().toISOString(),frozen:false}};saved.layers.push(layer);received.push(layer)});
+  saved.selected=received.map(layer=>layer.id);saved.boardName=board.name;board.state=saved;
+  projectEntry.sourceBoards=projectEntry.sourceBoards||[];
+  projectEntry.sourceBoards.push({id:uid(),name:`TANGENT / ${payload.board.name}`,provider:'tangent-systems',sourceProjectId:payload.board.id,receivedAt:new Date().toISOString(),forms:incomingForms.map(form=>({id:form.id||form.iterationId,name:form.name,sourceBounds:clone(form.sourceBounds||null),sourceLink:clone(form.sourceLink||{}),geometryRevision:form.geometryRevision??form.sourceLink?.geometryRevision??1}))});
+  library.active=projectEntry.id;library.selectedBoardId=board.id;
+  if(userName===store.activeUser){selectedIterationId=board.id;restore(saved)}
+  save();pendingTangentImport=null;sessionStorage.removeItem('overlap-tangent-inbox');closeOverlay('tangent-import-overlay');
+  $('status').textContent=`TANGENT BOARD ADDED / ${userName} / ${String(received.length).padStart(2,'0')} EDITABLE FORMS`;queueRender();
+}
+$('tangent-target-user').onchange=renderTangentUserProjects;
+$('tangent-target-project').onchange=renderTangentTargetBoardsForUser;
+$('tangent-import-confirm').onclick=commitTangentImport;
+
+/* Saved boards can be moved between projects in the active user library by
+   dragging a board row onto a project heading. Embedded exports move with the
+   board, while project-qualified assessment keys are remapped atomically. */
+let draggedSavedBoard=null;
+const cardBeforeProjectMove=card;
+card=(item,kind)=>{
+  const row=cardBeforeProjectMove(item,kind);
+  if(kind==='iteration'){
+    row.draggable=true;
+    row.dataset.moveBoard=item.id;
+    row.title='DRAG TO ANOTHER PROJECT TO MOVE BOARD';
+  }
+  return row;
+};
+function remapBoardReferenceSet(set,oldPrefix,newPrefix){
+  if(!(set instanceof Set))return;
+  [...set].forEach(key=>{if(key.startsWith(oldPrefix)){set.delete(key);set.add(`${newPrefix}${key.slice(oldPrefix.length)}`)}});
+}
+function moveSavedBoard(boardId,sourceProjectId,targetProjectId){
+  if(!boardId||!sourceProjectId||!targetProjectId||sourceProjectId===targetProjectId)return false;
+  const source=store.projects.find(entry=>entry.id===sourceProjectId),target=store.projects.find(entry=>entry.id===targetProjectId);
+  if(!source||!target)return false;
+  const index=source.iterations.findIndex(board=>board.id===boardId);
+  if(index<0)return false;
+  const [board]=source.iterations.splice(index,1);
+  target.iterations.push(board);
+  const oldPrefix=`${source.id}|${board.id}|`,newPrefix=`${target.id}|${board.id}|`;
+  Object.keys(store.exportCriteria||{}).forEach(key=>{if(!key.startsWith(oldPrefix))return;store.exportCriteria[`${newPrefix}${key.slice(oldPrefix.length)}`]=store.exportCriteria[key];delete store.exportCriteria[key]});
+  remapBoardReferenceSet(reviewSelection,oldPrefix,newPrefix);
+  remapBoardReferenceSet(comparisonSelection,oldPrefix,newPrefix);
+  remapBoardReferenceSet(typeReviewSelection,oldPrefix,newPrefix);
+  store.active=target.id;store.users[store.activeUser].selectedBoardId=board.id;selectedIterationId=board.id;
+  collapsedBoards.delete(target.id);boardSelections.clear();
+  if(board.state)restore(board.state);
+  save();$('status').textContent=`BOARD MOVED / ${board.name} / ${target.name}`;queueRender();
+  return true;
+}
+$('iteration-list').addEventListener('dragstart',event=>{
+  const row=event.target.closest('[data-move-board]');
+  if(!row)return;
+  draggedSavedBoard={boardId:row.dataset.moveBoard,sourceProjectId:store.active};
+  row.classList.add('board-dragging');
+  event.dataTransfer.effectAllowed='move';
+  event.dataTransfer.setData('text/plain',row.dataset.moveBoard);
+});
+$('iteration-list').addEventListener('dragend',event=>{
+  event.target.closest('[data-move-board]')?.classList.remove('board-dragging');
+  draggedSavedBoard=null;
+  document.querySelectorAll('.project-drop-target').forEach(node=>node.classList.remove('project-drop-target'));
+});
+$('board-tree').addEventListener('dragover',event=>{
+  const target=event.target.closest('[data-board]');
+  if(!draggedSavedBoard||!target||target.dataset.board===draggedSavedBoard.sourceProjectId)return;
+  event.preventDefault();event.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.project-drop-target').forEach(node=>node.classList.remove('project-drop-target'));
+  target.classList.add('project-drop-target');
+});
+$('board-tree').addEventListener('dragleave',event=>{
+  const target=event.target.closest('[data-board]');
+  if(target&&!target.contains(event.relatedTarget))target.classList.remove('project-drop-target');
+});
+$('board-tree').addEventListener('drop',event=>{
+  const target=event.target.closest('[data-board]');
+  if(!draggedSavedBoard||!target)return;
+  event.preventDefault();target.classList.remove('project-drop-target');
+  moveSavedBoard(draggedSavedBoard.boardId,draggedSavedBoard.sourceProjectId,target.dataset.board);
+  draggedSavedBoard=null;
+});
+document.head.append(Object.assign(document.createElement('style'),{textContent:`
+#iteration-list .iteration-row[draggable="true"]{cursor:grab}
+#iteration-list .iteration-row[draggable="true"]:active{cursor:grabbing}
+#iteration-list .iteration-row.board-dragging{opacity:.35}
+.project-item.project-drop-target{outline:2px solid currentColor!important;outline-offset:-3px!important;background:#000!important;color:#fff!important}
+body.mode-neo .project-item.project-drop-target{background:#daff33!important;color:#000!important}
+` }));
+queueRender();
